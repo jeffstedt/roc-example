@@ -1,10 +1,6 @@
-# This is ROC Lang, a new multi purpose language that can be used for web development, scripting, and more.
-# The syntax is Elm-like. It is a functional language with a strong type system.
-# Any autocomplete or syntax highlighting should be based on this file or Elm-like.
-
 app [main] {
-  cli: platform "https://github.com/roc-lang/basic-cli/releases/download/0.11.0/SY4WWMhWQ9NvQgvIthcv15AUeA7rAIJHAHgiaSHGhdY.tar.br",
-  json: "https://github.com/lukewilliamboswell/roc-json/releases/download/0.9.0/JI4BuuOuWnD1R3Xcx-F8VrWdj-LM_FfDRB00ekYjIIQ.tar.br",
+    cli: platform "https://github.com/roc-lang/basic-cli/releases/download/0.11.0/SY4WWMhWQ9NvQgvIthcv15AUeA7rAIJHAHgiaSHGhdY.tar.br",
+    json: "https://github.com/lukewilliamboswell/roc-json/releases/download/0.9.0/JI4BuuOuWnD1R3Xcx-F8VrWdj-LM_FfDRB00ekYjIIQ.tar.br",
 }
 
 import cli.Stdout
@@ -15,13 +11,13 @@ import Decode exposing [fromBytesPartial]
 import json.Json
 
 Todo : {
-  id : I64,
-  text : Str,
-  completed : Bool
+    id : I64,
+    text : Str,
+    completed : Bool,
 }
 
 Response : {
-  data : List Todo
+    data : List Todo,
 }
 
 main =
