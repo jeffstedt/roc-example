@@ -48,4 +48,4 @@ main =
 
     when decoded.result is
         Ok { data } -> List.map data .text |> List.map Stdout.line
-        Err err -> Task.err (Exit 1 "Error")
+        Err err -> Task.err (Exit 1 "Error") # @TODO: Fix type mismatch

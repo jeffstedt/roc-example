@@ -10,9 +10,6 @@ app [main] {
 import ws.Task
 import json.Json
 
-# print =
-#   Str.toUtf8
-
 respond = \status, headers, json ->
   Task.ok {
     status,
