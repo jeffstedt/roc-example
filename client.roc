@@ -4,10 +4,9 @@ app [main] {
 }
 
 import cli.Stdout
-import cli.Http exposing []
-import cli.Task exposing [Task]
-import Decode exposing [fromBytesPartial]
-
+import cli.Stdin
+import cli.Http
+import cli.Task
 import json.Json
 
 Todo : {
@@ -16,16 +15,27 @@ Todo : {
     completed : Bool,
 }
 
+Data : [
+    NotFound Str,
+    Todos (List Todo),
+]
+
 Response : {
-    data : List Todo,
+    data : Data,
 }
 
 main =
+
+    Stdout.line! "Enter todo id to get a specific todo, or press enter to get all todos 👇"
+    input = Stdin.line!
+    url = if input == "" then "http://localhost:8000/todos" else "http://localhost:8000/todos/$(input)"
+
     request = Http.send! {
         method: Get,
         headers: [],
-        url: "http://localhost:8000/todos",
+        url: url,
         mimeType: "",
+        # body: Str.toUtf8 "111",
         body: [],
         timeout: TimeoutMilliseconds 5000,
     }
@@ -38,7 +48,7 @@ main =
     decoder = Json.utf8With { fieldNameMapping: CamelCase }
 
     response : DecodeResult Response
-    response = fromBytesPartial (Str.toUtf8 output) decoder
+    response = Decode.fromBytesPartial (Str.toUtf8 output) decoder
 
     toString : Todo -> { id : Str, text : Str, completed : Str }
     toString = \todo -> {
@@ -47,11 +57,20 @@ main =
         completed: if todo.completed then "true" else "false",
     }
 
-    when response.result is
-        Ok { data } ->
-            List.map data toString
+    result : Data -> Str
+    result = \data ->
+        when data is
+            NotFound msg ->
+                msg
+
+            Todos todos ->
+                List.map todos toString
                 |> List.map (\{ id, text, completed } -> "id: $(id), text: $(text), completed: $(completed)")
-                |> Str.joinWith "\n"
-                |> Stdout.line!
+                |> Str.joinWith
+                    "\n"
+
+    when response.result is
+        Ok record ->
+            Stdout.line! (result record.data)
 
         Err _err -> Stdout.write! "Err, could not decode response"
