@@ -20,17 +20,34 @@ respondWithJson = \status, headers, body ->
     }
 
 main = \request ->
-
     init : List Todo
     init = [
         { id: 111, text: "Learn Roc", completed: Bool.false },
         { id: 222, text: "Go outside", completed: Bool.false },
     ]
 
-    when request.url is
-        # Todo: Create route for getting a specific todo
-        "/todos" ->
-            respondWithJson 200 [] init
+    dbg request.url
 
-        _ ->
-            respondWithJson 404 [] "404 not found"
+    if request.url == "/todos" then
+        respondWithJson 200 [] init
+    else if Str.contains request.url "/todos" then
+        todoById = Str.splitLast request.url "/"
+
+        when todoById is
+            Ok { after } ->
+                findTodoById = \{ id } ->
+                    inputId =
+                        when Str.toI64 after is
+                            Ok num -> num
+                            Err _ -> 0
+                    id == inputId
+
+                searchTodo = List.findFirst init findTodoById
+                when searchTodo is
+                    Ok todo -> respondWithJson 200 [] [todo]
+                    Err _ -> respondWithJson 404 [] "Not found"
+
+            Err _ ->
+                respondWithJson 404 [] init
+    else
+        respondWithJson 404 [] "Not found"
