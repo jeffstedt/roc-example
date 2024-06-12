@@ -21,7 +21,7 @@ Response : {
 }
 
 main =
-    request = {
+    request = Http.send! {
         method: Get,
         headers: [],
         url: "http://localhost:8000/todos",
@@ -30,18 +30,28 @@ main =
         timeout: TimeoutMilliseconds 5000,
     }
 
-    resp = Http.send! request
-
     output =
-        when resp |> Http.handleStringResponse is
-            Err err -> crash (Http.errorToString err)
+        when request |> Http.handleStringResponse is
+            Err err -> Http.errorToString! err
             Ok body -> body
 
     decoder = Json.utf8With { fieldNameMapping: CamelCase }
 
-    decoded : DecodeResult Response
-    decoded = Decode.fromBytesPartial (Str.toUtf8 output) decoder
+    response : DecodeResult Response
+    response = fromBytesPartial (Str.toUtf8 output) decoder
 
-    when decoded.result is
-        Ok { data } -> List.map data .text |> List.map Stdout.line
-        Err err -> Task.err (Exit 1 "Error") # @TODO: Fix type mismatch
+    toString : Todo -> { id : Str, text : Str, completed : Str }
+    toString = \todo -> {
+        id: Num.toStr todo.id,
+        text: todo.text,
+        completed: if todo.completed then "true" else "false",
+    }
+
+    when response.result is
+        Ok { data } ->
+            List.map data toString
+                |> List.map (\{ id, text, completed } -> "id: $(id), text: $(text), completed: $(completed)")
+                |> Str.joinWith "\n"
+                |> Stdout.line!
+
+        Err _err -> Stdout.write! "Err, could not decode response"

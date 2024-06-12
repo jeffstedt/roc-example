@@ -6,17 +6,31 @@ app [main] {
 import ws.Task
 import json.Json
 
-respond = \status, headers, json ->
+Todo : {
+    id : I64,
+    text : Str,
+    completed : Bool,
+}
+
+respondWithJson = \status, headers, body ->
     Task.ok {
         status,
         headers,
-        body: Encode.toBytes json Json.utf8,
+        body: Encode.toBytes { data: body } Json.utf8,
     }
 
 main = \request ->
+
+    init : List Todo
+    init = [
+        { id: 111, text: "Learn Roc", completed: Bool.false },
+        { id: 222, text: "Go outside", completed: Bool.false },
+    ]
+
     when request.url is
+        # Todo: Create route for getting a specific todo
         "/todos" ->
-            respond 200 [] { data: [{ id: 123, text: "Test1", completed: False }] }
+            respondWithJson 200 [] init
 
         _ ->
-            respond 404 [] { data: "not found" }
+            respondWithJson 404 [] "404 not found"
