@@ -15,13 +15,9 @@ Todo : {
     completed : Bool,
 }
 
-Data : [
-    NotFound Str,
-    Todos (List Todo),
-]
-
 Response : {
-    data : Data,
+    data : List Todo,
+    error : Str,
 }
 
 main =
@@ -57,20 +53,18 @@ main =
         completed: if todo.completed then "true" else "false",
     }
 
-    result : Data -> Str
-    result = \data ->
-        when data is
-            NotFound msg ->
-                msg
-
-            Todos todos ->
-                List.map todos toString
-                |> List.map (\{ id, text, completed } -> "id: $(id), text: $(text), completed: $(completed)")
-                |> Str.joinWith
-                    "\n"
+    getResult : Response -> Str
+    getResult = \{ data, error } ->
+        if error != "" then
+            error
+        else
+            data
+            |> List.map toString
+            |> List.map (\{ id, text, completed } -> "id: $(id), text: $(text), completed: $(completed)")
+            |> Str.joinWith "\n"
 
     when response.result is
         Ok record ->
-            Stdout.line! (result record.data)
+            Stdout.line! (getResult record)
 
         Err _err -> Stdout.write! "Err, could not decode response"

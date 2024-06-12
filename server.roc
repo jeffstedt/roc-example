@@ -12,11 +12,11 @@ Todo : {
     completed : Bool,
 }
 
-respondWithJson = \status, headers, body ->
+respondWithJson = \status, headers, body, error ->
     Task.ok {
         status,
         headers,
-        body: Encode.toBytes { data: body } Json.utf8,
+        body: Encode.toBytes { data: body, error } Json.utf8,
     }
 
 main = \request ->
@@ -29,7 +29,7 @@ main = \request ->
     dbg request.url
 
     if request.url == "/todos" then
-        respondWithJson 200 [] init
+        respondWithJson 200 [] init ""
     else if Str.contains request.url "/todos" then
         todoById = Str.splitLast request.url "/"
 
@@ -44,10 +44,10 @@ main = \request ->
 
                 searchTodo = List.findFirst init findTodoById
                 when searchTodo is
-                    Ok todo -> respondWithJson 200 [] [todo]
-                    Err _ -> respondWithJson 404 [] "Not found"
+                    Ok todo -> respondWithJson 200 [] [todo] ""
+                    Err _ -> respondWithJson 404 [] "Not found" ""
 
             Err _ ->
-                respondWithJson 404 [] init
+                respondWithJson 404 [] init ""
     else
-        respondWithJson 404 [] "Not found"
+        respondWithJson 404 [] "Not found" ""
