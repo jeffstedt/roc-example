@@ -4,8 +4,3 @@
 ```sh
 roc dev server.roc
 ```
-
-## Run client
-```sh
-roc dev client
-```

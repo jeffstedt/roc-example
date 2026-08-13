@@ -1,53 +1,97 @@
-app [main] {
-    ws: platform "https://github.com/roc-lang/basic-webserver/releases/download/0.5.0/Vq-iXfrRf-aHxhJpAh71uoVUlC-rsWvmjzTYOJKhu4M.tar.br",
-    json: "https://github.com/lukewilliamboswell/roc-json/releases/download/0.9.0/JI4BuuOuWnD1R3Xcx-F8VrWdj-LM_FfDRB00ekYjIIQ.tar.br",
+app [Context, program] {
+	pf: platform "https://github.com/roc-lang/basic-webserver/releases/download/0.16.0/42jC1JT3auhHSmv2Ah8mW5F2MXiAakq1UQQ4NQceQjXw.tar.zst",
+	http: "https://github.com/roc-lang/http/releases/download/1.0.0/6ZUwqYhCS8PU9Mo6MF7oV82ET2o7KYb57CLKDq4cq4sS.tar.zst",
 }
 
-import ws.Task
-import json.Json
+import pf.Server
+import pf.Stdout
+import http.Response
 
-Todo : {
-    id : I64,
-    text : Str,
-    completed : Bool,
+Context : { todos : List(Todo) }
+Todo : { id : I64, task : Str, status : TodoStatus }
+TodoStatus := [InProgress, Completed].{
+	encoder_for : encoding -> (TodoStatus, state -> Try(state, err))
+		where [
+			encoding.encode_str : Str, state -> Try(state, err),
+		]
+	encoder_for = |_encoding| {
+		Encoding : encoding
+
+		|status, state| Encoding.encode_str(todo_status_to_str(status), state)
+	}
 }
 
-respondWithJson = \status, headers, body, error ->
-    Task.ok {
-        status,
-        headers,
-        body: Encode.toBytes { data: body, error } Json.utf8,
-    }
+program = { init!, respond!, shutdown! }
 
-main = \request ->
-    init : List Todo
-    init = [
-        { id: 111, text: "Learn Roc", completed: Bool.false },
-        { id: 222, text: "Go outside", completed: Bool.false },
-    ]
+init! : () => Try({ config : Server.Config, context : Context }, [Exit(I64), ..])
+init! = ||
+	Ok({
+		config: Server.default_config.with_listen({ host: "127.0.0.1", port: 8000 }),
+		context: {
+			todos: [
+				{ id: 123, task: "Install Roc", status: Completed },
+				{ id: 456, task: "Learn Roc", status: InProgress },
+			]
+		},
+	})
 
-    dbg request.url
+respond! : Server.Request, Context => Try(Server.Outcome, [ServerErr(Str), ..])
+respond! = |req, context|
+	match handle_req!(req, context) {
+		Ok(response) => Ok(Server.respond(response))
+		Err(err) => Err(ServerErr(Str.inspect(err)))
+	}
 
-    if request.url == "/todos" then
-        respondWithJson 200 [] init ""
-    else if Str.contains request.url "/todos" then
-        todoById = Str.splitLast request.url "/"
+handle_req! : Server.Request, Context => Try(Response, _)
+handle_req! = |req, context| {
+	log_request!(req)?
 
-        when todoById is
-            Ok { after } ->
-                findTodoById = \{ id } ->
-                    inputId =
-                        when Str.toI64 after is
-                            Ok num -> num
-                            Err _ -> 0
-                    id == inputId
+	match get_path_parts(req) {
+		["", "api"] | ["", "api", ""] | ["", "api", "todos"] => Ok(json_response(200, context.todos))
+		["", "api", "todos", id_str] => Ok(json_response(200, get_todo_by_id(id_str, context.todos)))
+		_ => Ok(text_response(404, "URL Not Found (404)"))
+	}
+}
 
-                searchTodo = List.findFirst init findTodoById
-                when searchTodo is
-                    Ok todo -> respondWithJson 200 [] [todo] ""
-                    Err _ -> respondWithJson 404 [] "Not found" ""
+log_request! : Server.Request => Try({}, _)
+log_request! = |req| {
+	Stdout.line!("${Str.inspect(req.method())} #{req.target()}")
+		? |err| StdoutErr(Str.inspect(err))
+	Ok({})
+}
 
-            Err _ ->
-                respondWithJson 404 [] init ""
-    else
-        respondWithJson 404 [] "Not found" ""
+get_path_parts : Server.Request -> List(Str)
+get_path_parts = |req|
+	match req.target() {
+		Resource({ raw_path: path, .. }) => Str.split_on(path, "/")
+		_ => []
+	}
+
+get_todo_by_id : Str, List(Todo) -> List(Todo)
+get_todo_by_id = |id_str, todos|
+	match I64.from_str(id_str) {
+		Ok(id) => List.keep_if(todos, |todo| todo.id == id)
+		Err(_) => []
+	}
+
+text_response : U16, Str -> Response
+text_response = |status, body|
+	Response.from_status(status)
+		.with_headers([{ name: "Content-Type", value: "text/plain; charset=utf-8" }])
+		.with_body(body |> Str.to_utf8)
+
+json_response : U16, List(Todo) -> Response
+json_response = |status, todos|
+	Response.from_status(status)
+		.with_headers([{ name: "Content-Type", value: "application/json; charset=utf-8" }])
+		.with_body(todos |> Json.to_str |> Str.to_utf8)
+
+todo_status_to_str : TodoStatus -> Str
+todo_status_to_str = |status|
+	match status {
+		InProgress => "in-progress"
+		Completed => "completed"
+	}
+
+shutdown! : Server.ShutdownReason, Context => Try({}, [Exit(I64), ..])
+shutdown! = |_reason, _context| Ok({})
